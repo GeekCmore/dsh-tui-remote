@@ -1,0 +1,10 @@
+# Bundle patch for the example plugin: insert the plugin as a profile row.
+#
+# Override rows (no `insert`) replace the target row's WHOLE `config` — restate
+# every key the row owns. New rows go inside `insert`; never re-mount service
+# rows the dsh-base layer already provides.
+- insert:
+    - id: example-plugin
+      name: '@dsh-tui-ecosystem/example-plugin'
+      config:
+        slot: true
