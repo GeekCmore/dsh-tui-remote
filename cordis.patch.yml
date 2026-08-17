@@ -1,10 +1,26 @@
-# Bundle patch for the example plugin: insert the plugin as a profile row.
-#
-# Override rows (no `insert`) replace the target row's WHOLE `config` — restate
-# every key the row owns. New rows go inside `insert`; never re-mount service
-# rows the dsh-base layer already provides.
+# Live mode replaces the local execution world while sessions and the model
+# loop remain local. SSH account permissions become the effective file and
+# process boundary on the remote host.
+- id: fs-sandbox
+  name: '@deepseek-ai/dsh-fs-sandbox'
+  disabled: true
+
+- id: subprocess
+  name: '@deepseek-ai/dsh-subprocess-local'
+  disabled: true
+
 - insert:
-    - id: example-plugin
-      name: '@dsh-tui-ecosystem/example-plugin'
+    - id: dsh-remote
+      name: '@dsh-tui-ecosystem/dsh-remote'
       config:
-        slot: true
+        targetId: default
+        host: !!js process.env.DSH_REMOTE_HOST ?? 'localhost'
+        port: !!js Number(process.env.DSH_REMOTE_PORT ?? 22)
+        username: !!js process.env.DSH_REMOTE_USER ?? process.env.USER ?? 'root'
+        auth: !!js process.env.DSH_REMOTE_KEY ? 'key' : 'agent'
+        privateKeyPath: !!js process.env.DSH_REMOTE_KEY ?? ''
+        autoConnect: true
+        workspaces: !!js process.env.DSH_REMOTE_CWD ? [process.env.DSH_REMOTE_CWD] : []
+        monitorIntervalMs: 5000
+        readyTimeoutMs: 15000
+        keepaliveIntervalMs: 0

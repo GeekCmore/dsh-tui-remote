@@ -3,6 +3,8 @@
     "target": "es2024",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@deepseek-harness-tui/dsh-tui",
     "lib": ["ES2024"],
     "declaration": true,
     "declarationMap": true,

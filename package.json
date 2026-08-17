@@ -1,8 +1,17 @@
 {
-  "name": "@dsh-tui-ecosystem/example-plugin",
+  "name": "@dsh-tui-ecosystem/dsh-remote",
   "version": "0.1.0",
-  "description": "Example dsh-TUI ecosystem plugin: per-session turn counters via log-only session events, plus an optional TUI prompt slot.",
+  "description": "SSH live-mode runtime and remote workspace UX for dsh-TUI.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GeekCmore/dsh-tui-remote.git"
+  },
+  "homepage": "https://github.com/GeekCmore/dsh-tui-remote#readme",
+  "bugs": {
+    "url": "https://github.com/GeekCmore/dsh-tui-remote/issues"
+  },
   "type": "module",
+  "packageManager": "pnpm@11.7.0",
   "main": "lib/types/index.js",
   "types": "lib/types/index.d.ts",
   "exports": {
@@ -10,23 +19,20 @@
       "types": "./lib/types/index.d.ts",
       "import": "./lib/types/index.js"
     },
-    "./events": {
-      "types": "./lib/types/events.d.ts",
-      "import": "./lib/types/events.js"
-    },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
   "files": [
     "lib",
-    "skills",
     "cordis.patch.yml"
   ],
   "engines": {
     "node": "^22.19 || >=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "license": "MIT",
   "dsh": {
@@ -35,16 +41,19 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@dsh-remote/live-runtime": "github:GeekCmore/dsh-remote#57ec09ef0d669a3dcda85b8889da519e1ff60ef0&path:/packages/live-runtime"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-session": "^0.1.0-rc.6"
+    "@deepseek-harness-tui/dsh-tui": "^0.8.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
+    "@deepseek-harness-tui/dsh-tui": "^0.8.0",
     "@types/node": "^22.0.0",
-    "typescript": "^6.0.3"
+    "@types/react": "^19.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.0"
   }
 }

@@ -1,62 +1,86 @@
-# dsh-tui plugin-template
+# @dsh-tui-ecosystem/dsh-remote
 
-dsh-TUI 生态插件的起步脚手架。克隆它、改个名，5 分钟出一个能跑的
-Cordis 运行时插件。
+`dsh-remote` 为 [dsh-TUI](https://dshtui.com) 提供 SSH Live mode：会话、模型调用与审批仍在本机，
+文件系统和子进程执行切换到远端 Linux 主机。远端只需要 `sshd`、`bash`、GNU
+coreutils 和 procps，不需要安装 Node 或 dsh daemon。
 
-The starting scaffold for dsh-TUI ecosystem plugins. Clone it, rename it, and
-ship a working Cordis runtime plugin in minutes.
+当前版本是 Live MVP。Daemon、文件传输和多 target 见
+[`docs/roadmap.md`](docs/roadmap.md)。
 
-## 这个模板演示了什么 / What this template demonstrates
+## 开发安装
 
-- 完整插件契约：`name` / `Config`（类型 + Schema）/ `apply`，无默认导出
-  (The full plugin contract: `name` / `Config` type + schema / `apply`, no
-  default export)
-- 会话事件接缝：监听 `session/event` / `session/disposed`，追加 log-only
-  事件（Session events: consume the session stream, append log-only events）
-- 事件类型注册 + `SessionEventMap` 合并（`src/registration.ts` /
-  `src/events.ts`）——不注册会让会话无法 resume（mandatory event-type
-  registration — skipping it makes sessions unresumable）
-- 可选 TUI 槽位接缝：宿主提供 `ctx.tuiPrompt` 时注册 `${example}` 模板值
-  (Optional TUI prompt slot: `${example}` in `theme.leftPrompt` when the host
-  provides `ctx.tuiPrompt`)
-- 打包技能（`skills/example-skill/SKILL.md`）与主题资产
-  （`themes/example.json`，用户复制到 `~/.dsh-tui/themes/` 即可）
-  (Packaged skill + theme asset)
+插件依赖尚未发布到 npm 的 `@dsh-remote/live-runtime`。依赖固定到公开 Git
+仓库的完整 commit，不跟随 `main`：
 
-## 快速开始 / Quick start
+```json
+{
+  "@dsh-remote/live-runtime": "github:GeekCmore/dsh-remote#57ec09ef0d669a3dcda85b8889da519e1ff60ef0&path:/packages/live-runtime"
+}
+```
+
+pnpm 11 会在安装 Git 包时运行它的 `prepare`。本仓库的
+`pnpm-workspace.yaml` 已精确允许这个 commit 执行构建，并拒绝 `ssh2` 的可选
+原生构建。
 
 ```sh
-# 1. 复制并改名
-cp -r plugin-template my-plugin && cd my-plugin
-# 把 package.json 的 name 改成你的包名（约定 @dsh-tui-ecosystem/<name>）
-
-# 2. 安装与构建（首次用 pnpm install 生成锁文件，之后 CI 用 --frozen-lockfile）
 pnpm install
-pnpm build          # tsc -> lib/types/（发布前提交产物与 pnpm-lock.yaml）
+pnpm build
+pnpm test
+```
 
-# 3. 装进 dsh-tui profile 并在真实 TTY 验证
-dsh plugin --profile dsh-tui add <你的包名>
+将本仓库作为本地插件装入 `dsh-tui` profile 后启动真实 TTY：
+
+```sh
+dsh plugin --profile dsh-tui add /absolute/path/to/dsh-remote
 dsh --profile dsh-tui
 ```
 
-## 结构 / Layout
+## 配置
 
-```text
-src/index.ts          插件契约 + apply（入口）
-src/events.ts         事件类型 + SessionEventMap 合并
-src/registration.ts   KNOWN_SESSION_EVENT_TYPES 注册（resume 安全）
-cordis.patch.yml      向 profile 插入插件行
-skills/               打包技能（随包分发）
-themes/               主题资产（用户复制到 ~/.dsh-tui/themes/）
-```
+插件包自带 `cordis.patch.yml`，会禁用本地 `fs-sandbox` 和
+`dsh-subprocess-local`，然后挂载单个 Live target。默认 target id 为
+`default`。
 
-## 规范 / Conventions
+| 字段 | 默认值 | 说明 |
+| --- | --- | --- |
+| `host` | `localhost` | SSH 主机 |
+| `port` | `22` | SSH 端口 |
+| `username` | `$USER` / `root` | SSH 用户 |
+| `auth` | `agent` | `agent` 或 `key` |
+| `privateKeyPath` | 空 | `key` 模式必填 |
+| `autoConnect` | `true` | 插件挂载后连接 |
+| `workspaces` | `[]` | 常用远端绝对 POSIX 路径 |
+| `monitorIntervalMs` | `5000` | 指标采样周期 |
+| `readyTimeoutMs` | `15000` | SSH 握手超时 |
+| `keepaliveIntervalMs` | `0` | SSH keepalive 周期，0 为关闭 |
 
-- 纯 ESM，TypeScript 相对导入带 `.js` 后缀
-  (Pure ESM; `.js` suffixes on relative imports)
-- 许可证 MIT；Node `^22.19 || >=24`；语义化版本，`v*` tag 驱动发布
-  (MIT license; Node `^22.19 || >=24`; semver with tag-driven releases)
-- 完整接缝目录、质量红线与收录方式见核心仓库的
-  [插件开发指南](https://github.com/ccch1mneyyy/dsh-TUI/blob/main/docs/plugins.md)
-  (Full seam catalogue, red lines, and listing: the core repo's
-  [Plugin development guide](https://github.com/ccch1mneyyy/dsh-TUI/blob/main/docs/plugins.en.md))
+bundle patch 支持以下环境变量：
+
+- `DSH_REMOTE_HOST`
+- `DSH_REMOTE_PORT`
+- `DSH_REMOTE_USER`
+- `DSH_REMOTE_KEY`
+- `DSH_REMOTE_CWD`
+
+设置 `DSH_REMOTE_KEY` 会自动选择私钥认证。MVP 不支持密码认证。
+
+## TUI 操作
+
+`/remote` 打开全屏场景，包含 Overview、Diagnostics、Workspaces。命令也可以
+直接执行 `/remote connect`、`/remote disconnect` 或 `/remote reconnect`。
+
+连接成功不会修改当前会话的 cwd。在 Workspaces 中选择已配置路径，或输入一个
+远端绝对路径，dsh-TUI 会在该远端 cwd 新建 session。这个 session 的
+`!command` 由远端 `/bin/sh -lc` 执行，默认 30 秒超时。
+
+临时输入的 workspace 在当前进程内会被识别为远端路径；要让它在重启后仍能被
+识别，应将路径加入 `workspaces` 或 `DSH_REMOTE_CWD`。
+
+## 安全边界
+
+- Live mode 不使用本地 sandbox，远端 SSH 账户权限就是有效权限边界。
+- 插件不支持密码，不输出私钥内容。
+- 当前 Hub 尚未向 TUI 暴露 host-key verification 结果，Diagnostics 不会声称
+  主机密钥已验证。
+- dsh-TUI 0.8.0 没有常驻状态栏插件接缝，连接状态集中显示在 `/remote`、
+  workspace 的 `REMOTE` badge 和操作通知中。
