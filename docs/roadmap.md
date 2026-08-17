@@ -11,7 +11,7 @@
 - CPU、内存、磁盘、load average、进程数监控。
 - 配置路径和临时绝对路径切换；切换时创建远端 cwd 的新 session。
 - workspace `REMOTE` badge 与远端 `!command`。
-- Git commit 固定的自包含 `@dsh-remote/live-runtime`，暂不发布 npm。
+- Git submodule 固定的 `dsh-remote` 源码与本地 `@dsh-remote/live-runtime` 构建，暂不发布 npm。
 
 ## 2. Live UX 完善
 
@@ -40,7 +40,7 @@
 ## 5. 发布稳定化
 
 - 发布 `@dsh-remote/live-runtime` 与 `@dsh-tui-ecosystem/dsh-remote` npm 包。
-- 移除 Git `prepare` 依赖和 commit-specific `allowBuilds`。
+- 将 submodule 源码安装迁移为正式发布包，并移除本地 `link:` 依赖。
 - 建立 Node、pnpm、dsh-TUI、DeepSeek Harness 兼容矩阵。
 - 加入真实 sshd、真实 TTY、断线重连和 workspace resume E2E。
 - 发布前提交 `lib/types/`，执行 package 内容检查、变更日志和升级说明。

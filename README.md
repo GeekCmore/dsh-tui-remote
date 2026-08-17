@@ -7,33 +7,39 @@ session 的创建、attach 与断线恢复。
 当前版本先交付 Live MVP；Daemon、文件传输和多 target 见
 [`docs/roadmap.md`](docs/roadmap.md)。
 
-## 开发安装
+## 源码安装
 
-插件依赖尚未发布到 npm 的 `@dsh-remote/live-runtime`。依赖固定到公开 Git
-仓库的完整 commit，不跟随 `main`：
-
-```json
-{
-  "@dsh-remote/live-runtime": "github:GeekCmore/dsh-remote#57ec09ef0d669a3dcda85b8889da519e1ff60ef0&path:/packages/live-runtime"
-}
-```
-
-pnpm 11 会在安装 Git 包时运行它的 `prepare`。本仓库的
-`pnpm-workspace.yaml` 已精确允许这个 commit 执行构建，并拒绝 `ssh2` 的可选
-原生构建。
+插件暂不发布 npm 包。[`dsh-remote`](https://github.com/GeekCmore/dsh-remote)
+作为 Git submodule 固定在 `vendor/dsh-remote`，Live 与后续 Daemon mode 共用
+同一份远程核心源码。
 
 ```sh
-pnpm install
+git clone --recurse-submodules https://github.com/GeekCmore/dsh-tui-remote.git
+cd dsh-tui-remote
+pnpm install --frozen-lockfile
 pnpm build
 pnpm test
-```
-
-将本仓库作为本地插件装入 `dsh-tui` profile 后启动真实 TTY：
-
-```sh
-dsh plugin --profile dsh-tui add /absolute/path/to/dsh-remote
+dsh plugin --profile dsh-tui add "$PWD"
 dsh --profile dsh-tui
 ```
+
+已有普通 clone 可补拉 submodule：
+
+```sh
+git submodule update --init --recursive
+```
+
+更新源码时同步主仓库记录的 submodule commit，再重新安装和构建：
+
+```sh
+git pull
+git submodule sync --recursive
+git submodule update --init --recursive
+pnpm install --frozen-lockfile
+pnpm build
+```
+
+GitHub 自动生成的 Source ZIP 不包含 submodule 源码，不适用于本安装方式。
 
 ## 配置
 

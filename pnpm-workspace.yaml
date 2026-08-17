@@ -1,7 +1,18 @@
+packages:
+  - .
+  - vendor/dsh-remote/packages/fs-ssh
+  - vendor/dsh-remote/packages/live-runtime
+  - vendor/dsh-remote/packages/remote
+  - vendor/dsh-remote/packages/remote-core
+  - vendor/dsh-remote/packages/remote-frontend
+  - vendor/dsh-remote/packages/remote-ssh
+  - vendor/dsh-remote/packages/seams
+  - vendor/dsh-remote/packages/subprocess-ssh
+  - vendor/dsh-remote/packages/test-utils
+
 onlyBuiltDependencies:
   - esbuild
 allowBuilds:
-  '@dsh-remote/live-runtime@https://codeload.github.com/GeekCmore/dsh-remote/tar.gz/57ec09ef0d669a3dcda85b8889da519e1ff60ef0#path:/packages/live-runtime': true
   cpu-features: false
   esbuild: true
   ssh2: false

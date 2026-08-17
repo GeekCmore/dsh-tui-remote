@@ -30,9 +30,10 @@
     "node": "^22.19 || >=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "pnpm run build:runtime && tsc -p tsconfig.json",
+    "build:runtime": "pnpm --dir vendor/dsh-remote --filter @dsh-remote/live-runtime build",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "pnpm run build:runtime && tsc -p tsconfig.json --noEmit"
   },
   "license": "MIT",
   "dsh": {
@@ -42,7 +43,7 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
-    "@dsh-remote/live-runtime": "github:GeekCmore/dsh-remote#57ec09ef0d669a3dcda85b8889da519e1ff60ef0&path:/packages/live-runtime"
+    "@dsh-remote/live-runtime": "link:./vendor/dsh-remote/packages/live-runtime"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
