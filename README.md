@@ -1,10 +1,10 @@
 # @dsh-tui-ecosystem/dsh-remote
 
-`dsh-remote` 为 [dsh-TUI](https://dshtui.com) 提供 SSH Live mode：会话、模型调用与审批仍在本机，
-文件系统和子进程执行切换到远端 Linux 主机。远端只需要 `sshd`、`bash`、GNU
-coreutils 和 procps，不需要安装 Node 或 dsh daemon。
+`dsh-remote` 面向 [dsh-TUI](https://dshtui.com) 提供 Live + Daemon 双模式远程控制：
+Live mode 将文件系统和子进程执行切换到远端 Linux 主机，Daemon mode 用于远端
+session 的创建、attach 与断线恢复。
 
-当前版本是 Live MVP。Daemon、文件传输和多 target 见
+当前版本先交付 Live MVP；Daemon、文件传输和多 target 见
 [`docs/roadmap.md`](docs/roadmap.md)。
 
 ## 开发安装

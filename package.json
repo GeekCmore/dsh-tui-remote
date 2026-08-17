@@ -1,7 +1,7 @@
 {
   "name": "@dsh-tui-ecosystem/dsh-remote",
   "version": "0.1.0",
-  "description": "SSH live-mode runtime and remote workspace UX for dsh-TUI.",
+  "description": "Live and daemon remote-control UX for dsh-TUI; Live MVP available now.",
   "repository": {
     "type": "git",
     "url": "https://github.com/GeekCmore/dsh-tui-remote.git"
