@@ -44,18 +44,22 @@ GitHub 自动生成的 Source ZIP 不包含 submodule 源码，不适用于本�
 ## 配置
 
 插件包自带 `cordis.patch.yml`，会禁用本地 `fs-sandbox` 和
-`dsh-subprocess-local`，然后挂载单个 Live target。默认 target id 为
-`default`。
+`dsh-subprocess-local`，并将 shell sandbox 策略固定为 `danger-full-access`。
+这样保留 dsh-TUI 的 sandbox/preset contract，但实际 Bash 与 PTY 都通过 SSH
+执行，不会在本机或远端额外要求 `bwrap`。远程 profile 只提供
+`danger-full-access` 权限档位，避免切换到需要本地 bwrap 的模式；有效边界是
+SSH 账号权限。
+默认 target id 为 `default`。
 
 | 字段 | 默认值 | 说明 |
 | --- | --- | --- |
 | `host` | `localhost` | SSH 主机 |
 | `port` | `22` | SSH 端口 |
 | `username` | `$USER` / `root` | SSH 用户 |
-| `auth` | `agent` | `agent` 或 `key` |
+| `auth` | `agent` | `agent`、`key` 或 `password` |
 | `privateKeyPath` | 空 | `key` 模式必填 |
-| `autoConnect` | `true` | 插件挂载后连接 |
-| `workspaces` | `[]` | 常用远端绝对 POSIX 路径 |
+| `autoConnect` | `true` | 插件挂载后连接；`password` 模式下不自动连接 |
+| `workspaces` | `['/']` | 常用远端绝对 POSIX 路径 |
 | `monitorIntervalMs` | `5000` | 指标采样周期 |
 | `readyTimeoutMs` | `15000` | SSH 握手超时 |
 | `keepaliveIntervalMs` | `0` | SSH keepalive 周期，0 为关闭 |
@@ -65,17 +69,22 @@ bundle patch 支持以下环境变量：
 - `DSH_REMOTE_HOST`
 - `DSH_REMOTE_PORT`
 - `DSH_REMOTE_USER`
+- `DSH_REMOTE_AUTH`
 - `DSH_REMOTE_KEY`
 - `DSH_REMOTE_CWD`
 
-设置 `DSH_REMOTE_KEY` 会自动选择私钥认证。MVP 不支持密码认证。
+设置 `DSH_REMOTE_KEY` 会自动选择私钥认证。只有账号密码时，设置
+`DSH_REMOTE_AUTH=password`；插件不会从环境变量或配置文件读取密码，而是在每次
+Connect/Reconnect 时通过 TUI 遮罩输入临时询问。
 
 ## TUI 操作
 
 `/remote` 打开全屏场景，包含 Overview、Diagnostics、Workspaces。命令也可以
 直接执行 `/remote connect`、`/remote disconnect` 或 `/remote reconnect`。
+密码认证下，`/remote connect` 和 `/remote reconnect` 会打开场景并请求密码。
 
-连接成功不会修改当前会话的 cwd。在 Workspaces 中选择已配置路径，或输入一个
+未指定 `DSH_REMOTE_CWD` 时，新会话默认使用远端 `/`，避免把本机启动目录误传给 SSH。
+设置该变量后，新会话使用指定目录。在 Workspaces 中选择已配置路径，或输入一个
 远端绝对路径，dsh-TUI 会在该远端 cwd 新建 session。这个 session 的
 `!command` 由远端 `/bin/sh -lc` 执行，默认 30 秒超时。
 
@@ -85,7 +94,7 @@ bundle patch 支持以下环境变量：
 ## 安全边界
 
 - Live mode 不使用本地 sandbox，远端 SSH 账户权限就是有效权限边界。
-- 插件不支持密码，不输出私钥内容。
+- 密码仅用于当前连接尝试，不写入插件配置或环境变量；插件不输出密码或私钥内容。
 - 当前 Hub 尚未向 TUI 暴露 host-key verification 结果，Diagnostics 不会声称
   主机密钥已验证。
 - dsh-TUI 0.8.0 没有常驻状态栏插件接缝，连接状态集中显示在 `/remote`、

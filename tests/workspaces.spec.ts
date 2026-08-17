@@ -40,7 +40,7 @@ describe('remote workspaces', () => {
     const target = await controller.prepare('/opt/code')
     expect(target).toMatchObject({ cwd: '/opt/code', badge: 'REMOTE', kind: 'provider' })
     expect(controller.paths()).toEqual(['/srv/app', '/opt/code'])
-    expect(live.exec).toHaveBeenCalledOnce()
+    expect(live.exec).toHaveBeenCalledWith({ command: "test -d '/opt/code'", signal: undefined })
   })
 
   it('routes command shell execution through the live runtime', async () => {

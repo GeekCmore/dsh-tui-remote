@@ -7,6 +7,15 @@ function positiveInteger(value: string | undefined, fallback: number): number {
 
 const envWorkspace = process.env.DSH_REMOTE_CWD
 const envKey = process.env.DSH_REMOTE_KEY
+const envAuth = process.env.DSH_REMOTE_AUTH
+
+export type AuthMode = 'agent' | 'key' | 'password'
+
+const defaultAuth: AuthMode = envAuth === 'agent' || envAuth === 'key' || envAuth === 'password'
+  ? envAuth
+  : envKey
+    ? 'key'
+    : 'agent'
 
 export type Config = {
   targetId?: string
@@ -14,7 +23,7 @@ export type Config = {
   host?: string
   port?: number
   username?: string
-  auth?: 'agent' | 'key'
+  auth?: AuthMode
   privateKeyPath?: string
   autoConnect?: boolean
   workspaces?: string[]
@@ -29,7 +38,7 @@ export interface ResolvedConfig {
   host: string
   port: number
   username: string
-  auth: 'agent' | 'key'
+  auth: AuthMode
   privateKeyPath: string
   autoConnect: boolean
   workspaces: string[]
@@ -44,10 +53,12 @@ export const Config: Schemastery<Config> = z.object({
   host: z.string().default(process.env.DSH_REMOTE_HOST ?? 'localhost'),
   port: z.number().default(positiveInteger(process.env.DSH_REMOTE_PORT, 22)),
   username: z.string().default(process.env.DSH_REMOTE_USER ?? process.env.USER ?? 'root'),
-  auth: z.union(['agent', 'key']).default(envKey ? 'key' : 'agent'),
+  auth: z.union(['agent', 'key', 'password']).default(defaultAuth),
   privateKeyPath: z.string().default(envKey ?? ''),
   autoConnect: z.boolean().default(true),
-  workspaces: z.array(z.string()).default(envWorkspace ? [envWorkspace] : []),
+  // A remote subprocess always needs a directory that exists on the target.
+  // `/` is the portable fallback when no target-specific workspace is given.
+  workspaces: z.array(z.string()).default(envWorkspace ? [envWorkspace] : ['/']),
   monitorIntervalMs: z.number().default(5_000),
   readyTimeoutMs: z.number().default(15_000),
   keepaliveIntervalMs: z.number().default(0),
@@ -55,8 +66,9 @@ export const Config: Schemastery<Config> = z.object({
 
 export function resolveConfig(config: Config): ResolvedConfig {
   const host = config.host?.trim() || process.env.DSH_REMOTE_HOST || 'localhost'
-  const auth = config.auth === 'key' ? 'key' : 'agent'
-  const workspaces = [...new Set((config.workspaces ?? []).map(path => path.trim()).filter(Boolean))]
+  const requestedAuth = config.auth ?? defaultAuth
+  const auth = requestedAuth === 'key' || requestedAuth === 'password' ? requestedAuth : 'agent'
+  const workspaces = [...new Set((config.workspaces ?? ['/']).map(path => path.trim()).filter(Boolean))]
   return {
     targetId: config.targetId?.trim() || 'default',
     title: config.title?.trim() || host,

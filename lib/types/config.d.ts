@@ -1,10 +1,11 @@
+export type AuthMode = 'agent' | 'key' | 'password';
 export type Config = {
     targetId?: string;
     title?: string;
     host?: string;
     port?: number;
     username?: string;
-    auth?: 'agent' | 'key';
+    auth?: AuthMode;
     privateKeyPath?: string;
     autoConnect?: boolean;
     workspaces?: string[];
@@ -18,7 +19,7 @@ export interface ResolvedConfig {
     host: string;
     port: number;
     username: string;
-    auth: 'agent' | 'key';
+    auth: AuthMode;
     privateKeyPath: string;
     autoConnect: boolean;
     workspaces: string[];

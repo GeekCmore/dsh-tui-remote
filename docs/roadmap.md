@@ -5,7 +5,7 @@
 
 ## 1. Live MVP
 
-- 单 SSH target，支持 SSH agent 与私钥认证。
+- 单 SSH target，支持 SSH agent、私钥与临时密码询问认证。
 - `/remote` 全屏 Overview、Diagnostics、Workspaces。
 - 连接、断开、重连及连接错误可见化。
 - CPU、内存、磁盘、load average、进程数监控。

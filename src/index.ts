@@ -6,6 +6,8 @@ import type { TuiWorkspaceProvider } from '@deepseek-harness-tui/dsh-tui/workspa
 import { resolveConfig } from './config.js'
 import type { Config as PluginConfig } from './config.js'
 import { createRemoteScene } from './scene.js'
+import { createStatusItemsProvider } from './status.js'
+import type { StatusItemsProvider } from './status.js'
 import { ConnectionStore } from './store.js'
 import { RemoteWorkspaceController } from './workspaces.js'
 
@@ -40,6 +42,10 @@ interface CommandTreesLike {
   register(provider: TuiCommandTreeProvider): () => void
 }
 
+interface StatusItemsLike {
+  register(provider: StatusItemsProvider): () => void
+}
+
 function commandError(error: unknown): CommandResult {
   return { kind: 'error', text: error instanceof Error ? error.message : String(error) }
 }
@@ -48,7 +54,9 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
   const resolved = resolveConfig(config)
   const auth = resolved.auth === 'key'
     ? { type: 'key' as const, privateKeyPath: resolved.privateKeyPath }
-    : { type: 'agent' as const }
+    : resolved.auth === 'password'
+      ? { type: 'password' as const }
+      : { type: 'agent' as const }
   const runtime = installLiveRuntime(ctx, {
     targetId: resolved.targetId,
     title: resolved.title,
@@ -76,6 +84,7 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
   const scenes = ctx.get('tuiScenes', false) as ScenesLike | undefined
   const workspaces = ctx.get('tuiWorkspaces', false) as WorkspacesLike | undefined
   const commandTrees = ctx.get('tuiCommandTrees', false) as CommandTreesLike | undefined
+  const statusItems = ctx.get('tuiStatusItems', false) as StatusItemsLike | undefined
   const commands = ctx.get('commands', false) as CommandsLike | undefined
 
   if (scenes !== undefined) {
@@ -83,6 +92,9 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
   }
   if (workspaces !== undefined) {
     ctx.effect(() => workspaces.register(workspaceController.provider), 'dsh-remote workspace provider')
+  }
+  if (statusItems !== undefined) {
+    ctx.effect(() => statusItems.register(createStatusItemsProvider(store, resolved)), 'dsh-remote status items')
   }
   if (commandTrees !== undefined) {
     ctx.effect(() => commandTrees.register({
@@ -111,6 +123,12 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
             : { kind: 'error', text: 'The dsh-TUI scene service is unavailable' }
         }
         try {
+          if (resolved.auth === 'password' && (action === 'connect' || action === 'reconnect')) {
+            store.requestCredentials(action)
+            if (scenes?.open('dsh-remote') === true) return { kind: 'success' }
+            store.cancelCredentials()
+            return { kind: 'error', text: 'Open /remote to enter the SSH password' }
+          }
           if (action === 'connect') await store.connect()
           else if (action === 'disconnect') await store.disconnect()
           else if (action === 'reconnect') await store.reconnect()
@@ -123,7 +141,7 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
     }), 'dsh-remote command')
   }
 
-  if (resolved.autoConnect && configurationError === undefined) {
+  if (resolved.autoConnect && resolved.auth !== 'password' && configurationError === undefined) {
     queueMicrotask(() => void store.connect().catch(() => undefined))
   }
 }

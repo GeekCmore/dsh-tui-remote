@@ -9,18 +9,50 @@
   name: '@deepseek-ai/dsh-subprocess-local'
   disabled: true
 
+- id: sandbox-policy
+  config:
+    mode: danger-full-access
+    workspaceRoot: !!js "process.env.DSH_REMOTE_CWD ?? '/'"
+
+- id: permission
+  config:
+    defaultPreset: danger-full-access
+    presets:
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+
+# dsh-TUI otherwise records the local launch directory as the session cwd.
+# The remote subprocess provider cannot chdir to that local-only path.
+- id: dsh-tui
+  config:
+    provider: deepseek-official
+    fullscreen: false
+    effort: max
+    preset: !!js "process.env.DSH_TUI_PRESET ?? undefined"
+    workspace: !!js "process.env.DSH_TUI_WORKSPACE_TARGET ?? undefined"
+    sessionId: !!js "process.env.DSH_TUI_RESUME_SESSION ?? process.env.DSH_CC_RESUME_SESSION ?? undefined"
+    cwd: !!js "process.env.DSH_REMOTE_CWD ?? '/'"
+    modes:
+      - id: remote
+        plan: false
+        sandbox: danger-full-access
+        approval: never
+
 - insert:
+    - id: terminals
+      name: '@deepseek-ai/dsh-terminal'
     - id: dsh-remote
       name: '@dsh-tui-ecosystem/dsh-remote'
       config:
         targetId: default
-        host: !!js process.env.DSH_REMOTE_HOST ?? 'localhost'
-        port: !!js Number(process.env.DSH_REMOTE_PORT ?? 22)
-        username: !!js process.env.DSH_REMOTE_USER ?? process.env.USER ?? 'root'
-        auth: !!js process.env.DSH_REMOTE_KEY ? 'key' : 'agent'
-        privateKeyPath: !!js process.env.DSH_REMOTE_KEY ?? ''
+        host: !!js "process.env.DSH_REMOTE_HOST ?? 'localhost'"
+        port: !!js "Number(process.env.DSH_REMOTE_PORT ?? 22)"
+        username: !!js "process.env.DSH_REMOTE_USER ?? process.env.USER ?? 'root'"
+        auth: !!js "process.env.DSH_REMOTE_AUTH ?? (process.env.DSH_REMOTE_KEY ? 'key' : 'agent')"
+        privateKeyPath: !!js "process.env.DSH_REMOTE_KEY ?? ''"
         autoConnect: true
-        workspaces: !!js process.env.DSH_REMOTE_CWD ? [process.env.DSH_REMOTE_CWD] : []
+        workspaces: !!js "process.env.DSH_REMOTE_CWD ? [process.env.DSH_REMOTE_CWD] : ['/']"
         monitorIntervalMs: 5000
         readyTimeoutMs: 15000
         keepaliveIntervalMs: 0

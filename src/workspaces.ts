@@ -87,7 +87,9 @@ export class RemoteWorkspaceController {
     if (this.runtime.status !== 'connected') throw new Error('Connect the remote target before switching workspace')
     const normalized = posix.normalize(path)
     const result = await this.runtime.exec({
-      command: `test -d -- ${shellQuote(normalized)}`,
+      // POSIX `test` (including dash's builtin) does not accept `--`.
+      // Absolute shell-quoted paths do not need an option terminator here.
+      command: `test -d ${shellQuote(normalized)}`,
       signal,
     })
     if (result.exitCode !== 0) throw new Error(`Remote directory does not exist: ${normalized}`)

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { LiveConnectionStatus, LiveRuntime } from '@dsh-remote/live-runtime'
+import type { LiveConnectionStatus, LiveCredentials, LiveRuntime } from '@dsh-remote/live-runtime'
 import { ConnectionStore } from '../src/store.js'
 
 function deferred(): { promise: Promise<void>; resolve(): void } {
@@ -47,6 +47,21 @@ describe('ConnectionStore', () => {
     const store = new ConnectionStore(runtime({ connect: async () => { throw new Error('connection refused') } }))
     await expect(store.connect()).rejects.toThrow('connection refused')
     expect(store.getSnapshot().error).toBe('connection refused')
+  })
+
+  it('passes temporary credentials to the runtime', async () => {
+    const connect = vi.fn(async (_credentials?: LiveCredentials) => undefined)
+    const store = new ConnectionStore(runtime({ connect }))
+    await store.connect({ password: 'secret' })
+    expect(connect).toHaveBeenCalledWith({ password: 'secret' })
+  })
+
+  it('tracks and cancels credential requests', () => {
+    const store = new ConnectionStore(runtime())
+    store.requestCredentials('reconnect')
+    expect(store.getSnapshot().credentialRequest).toBe('reconnect')
+    store.cancelCredentials()
+    expect(store.getSnapshot().credentialRequest).toBeUndefined()
   })
 
   it('blocks key authentication without a key path', async () => {

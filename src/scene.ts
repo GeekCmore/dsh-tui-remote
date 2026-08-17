@@ -44,6 +44,8 @@ function createRemoteSceneComponent(
     const [draft, setDraft] = React.useState('')
     const [workspaceError, setWorkspaceError] = React.useState<string | undefined>()
     const [workspaceBusy, setWorkspaceBusy] = React.useState(false)
+    const [password, setPassword] = React.useState('')
+    const [passwordError, setPasswordError] = React.useState<string | undefined>()
     const { columns } = useTerminalSize()
     const narrow = columns < 78
     const paths = workspaces.paths()
@@ -52,17 +54,27 @@ function createRemoteSceneComponent(
       if (tab === 1) void store.refreshDiagnostics()
     }, [tab])
 
-    const runAction = React.useCallback((action: RemoteAction) => {
+    const runAction = React.useCallback((action: RemoteAction, submittedPassword?: string) => {
       const operation = action === 'connect'
-        ? store.connect()
+        ? store.connect(submittedPassword === undefined ? undefined : { password: submittedPassword })
         : action === 'disconnect'
           ? store.disconnect()
-          : store.reconnect()
+          : store.reconnect(submittedPassword === undefined ? undefined : { password: submittedPassword })
       void operation.then(
         () => channel.notify(`Remote ${action} complete`, { color: 'success' }),
         error => channel.notify(error instanceof Error ? error.message : String(error), { color: 'error', timeoutMs: 8_000 }),
       )
     }, [channel])
+
+    const requestAction = React.useCallback((action: RemoteAction) => {
+      if (config.auth === 'password' && action !== 'disconnect') {
+        setPassword('')
+        setPasswordError(undefined)
+        store.requestCredentials(action)
+        return
+      }
+      runAction(action)
+    }, [runAction])
 
     const openWorkspace = React.useCallback((path: string) => {
       setWorkspaceBusy(true)
@@ -78,6 +90,38 @@ function createRemoteSceneComponent(
     }, [channel, close])
 
     useInput((input, key, event) => {
+      const credentialAction = snapshot.credentialRequest
+      if (credentialAction !== undefined) {
+        if (key.escape) {
+          setPassword('')
+          setPasswordError(undefined)
+          store.cancelCredentials()
+          return
+        }
+        if (key.backspace || key.delete) {
+          setPassword(value => value.slice(0, -1))
+          setPasswordError(undefined)
+          return
+        }
+        if (key.return) {
+          if (password.length === 0) {
+            setPasswordError('Password is required')
+            return
+          }
+          const submittedPassword = password
+          setPassword('')
+          setPasswordError(undefined)
+          store.cancelCredentials()
+          runAction(credentialAction, submittedPassword)
+          return
+        }
+        if (!key.ctrl && !key.meta && input.length > 0) {
+          const text = event.isPasted ? input.replace(/[\r\n]+/g, '') : input
+          setPassword(value => value + text)
+          setPasswordError(undefined)
+        }
+        return
+      }
       if (key.escape) {
         close()
         return
@@ -93,7 +137,7 @@ function createRemoteSceneComponent(
           return
         }
         if (input === 'r' && !key.ctrl && !key.meta) {
-          runAction('reconnect')
+          requestAction('reconnect')
           return
         }
         if (input === 'd' && !key.ctrl && !key.meta) {
@@ -109,7 +153,7 @@ function createRemoteSceneComponent(
           return
         }
         if (key.return && snapshot.busy === undefined) {
-          runAction(ACTIONS[actionIndex]!.action)
+          requestAction(ACTIONS[actionIndex]!.action)
         }
         return
       }
@@ -159,6 +203,15 @@ function createRemoteSceneComponent(
         ` ${entry.label} `,
       )),
     )
+    const passwordPrompt = snapshot.credentialRequest === undefined
+      ? null
+      : React.createElement(
+          Box,
+          { flexDirection: 'column', marginTop: 1, paddingX: 1, borderStyle: 'single', borderColor: 'warning' },
+          React.createElement(Text, { bold: true }, `SSH password for ${config.username}@${config.host}`),
+          React.createElement(Text, { wrap: 'truncate-end' }, `Password  ${'*'.repeat(password.length)}`),
+          passwordError === undefined ? null : React.createElement(Text, { color: 'error' }, passwordError),
+        )
 
     let body: ReturnType<typeof React.createElement>
     if (tab === 0) {
@@ -173,7 +226,7 @@ function createRemoteSceneComponent(
         React.createElement(Text, { bold: true }, 'Target'),
         React.createElement(Text, null, `ID       ${config.targetId}`),
         React.createElement(Text, null, `Address  ${config.username}@${config.host}:${config.port}`),
-        React.createElement(Text, null, `Auth     ${config.auth === 'agent' ? 'SSH agent' : 'Private key'}`),
+        React.createElement(Text, null, `Auth     ${config.auth === 'agent' ? 'SSH agent' : config.auth === 'key' ? 'Private key' : 'Password prompt'}`),
         React.createElement(Text, { wrap: 'truncate-end' }, `Root     ${store.runtime.runtimeRoot ?? '-'}`),
       )
       const health = React.createElement(
@@ -229,6 +282,7 @@ function createRemoteSceneComponent(
       ),
       tabRow,
       actionRow,
+      passwordPrompt,
       snapshot.error === undefined ? null : React.createElement(Text, { color: 'error', wrap: 'wrap' }, snapshot.error),
       body,
     )

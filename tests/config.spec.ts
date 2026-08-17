@@ -15,11 +15,22 @@ describe('resolveConfig', () => {
       monitorIntervalMs: 5_000,
       readyTimeoutMs: 15_000,
       keepaliveIntervalMs: 0,
+      workspaces: ['/'],
     })
   })
 
   it('normalizes duplicate workspace paths', () => {
     const config = resolveConfig({ workspaces: ['/srv/app', ' /srv/app ', '', '/opt/code'] })
     expect(config.workspaces).toEqual(['/srv/app', '/opt/code'])
+  })
+
+  it('uses the remote root when no workspace is configured', () => {
+    expect(resolveConfig({}).workspaces).toEqual(['/'])
+  })
+
+  it('accepts password authentication without storing a password', () => {
+    const config = resolveConfig({ auth: 'password' })
+    expect(config.auth).toBe('password')
+    expect(config).not.toHaveProperty('password')
   })
 })
