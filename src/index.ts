@@ -11,6 +11,7 @@ import { createStatusItemsProvider } from './status.js'
 import type { StatusItemsProvider } from './status.js'
 import { ConnectionStore } from './store.js'
 import { RemoteWorkspaceController } from './workspaces.js'
+import type { RemoteWorkspaceStorage } from './workspaces.js'
 import { hostKeyIdentity, HostKeyVerifier } from './hostkeys.js'
 
 export const name = 'dsh-remote'
@@ -36,6 +37,10 @@ type CommandDefinition = Parameters<CommandsLike['register']>[0]
 interface TuiPluginHostLike {
   admit(pluginCtx: Context, source: string, options?: { source?: string; activationId?: string }): unknown
   registerCommand(pluginCtx: Context, contributionId: string, definition: CommandDefinition): () => void
+}
+
+interface TuiPluginStorageLike {
+  open(pluginCtx: Context): RemoteWorkspaceStorage
 }
 
 interface TuiStatusLike {
@@ -91,13 +96,6 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
     ? 'privateKeyPath is required when auth is key'
     : undefined
   const store = new ConnectionStore(runtime, configurationError, hostKeyVerifier)
-  const workspaceController = new RemoteWorkspaceController(runtime, {
-    targetId: resolved.targetId,
-    title: resolved.title,
-    host: resolved.host,
-    username: resolved.username,
-    paths: resolved.workspaces,
-  })
 
   const scenes = ctx.get('tuiScenes', false) as ScenesLike | undefined
   const workspaces = ctx.get('tuiWorkspaces', false) as WorkspacesLike | undefined
@@ -105,7 +103,44 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
   const statusItems = ctx.get('tuiStatusItems', false) as StatusItemsLike | undefined
   const tuiStatus = ctx.get('tuiStatus', false) as TuiStatusLike | undefined
   const tuiPluginHost = ctx.get('tuiPluginHost', false) as TuiPluginHostLike | undefined
+  const tuiPluginStorage = ctx.get('tuiPluginStorage', false) as TuiPluginStorageLike | undefined
   const commands = ctx.get('commands', false) as CommandsLike | undefined
+
+  let admitted = false
+  if (tuiPluginHost !== undefined) {
+    try {
+      tuiPluginHost.admit(ctx, manifestSource, {
+        source: 'dsh-plugin.json',
+      })
+      admitted = true
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      ctx.logger.warn(`dsh-remote: plugin admission unavailable; optional mediated capabilities disabled (${detail})`)
+    }
+  }
+
+  let workspaceStorage: RemoteWorkspaceStorage | undefined
+  if (admitted && tuiPluginStorage !== undefined) {
+    try {
+      workspaceStorage = tuiPluginStorage.open(ctx)
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error)
+      ctx.logger.warn(`dsh-remote: workspace persistence unavailable; configured workspaces remain available (${detail})`)
+    }
+  }
+  const workspaceController = new RemoteWorkspaceController(runtime, {
+    targetId: resolved.targetId,
+    title: resolved.title,
+    host: resolved.host,
+    port: resolved.port,
+    username: resolved.username,
+    paths: resolved.workspaces,
+    storage: workspaceStorage,
+    onStorageError: error => {
+      const detail = error instanceof Error ? error.message : String(error)
+      ctx.logger.warn(`dsh-remote: workspace persistence unavailable; configured workspaces remain available (${detail})`)
+    },
+  })
 
   if (scenes !== undefined) {
     hostKeyVerifier.subscribe(() => {
@@ -118,7 +153,22 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
   }
   ctx.effect(() => () => hostKeyVerifier.dispose(), 'dsh-remote host-key verifier')
   if (workspaces !== undefined) {
-    ctx.effect(() => workspaces.register(workspaceController.provider), 'dsh-remote workspace provider')
+    ctx.effect(() => {
+      let active = true
+      let dispose: (() => void) | undefined
+      void workspaceController.ready().then(() => {
+        if (!active) return
+        dispose = workspaces.register(workspaceController.provider)
+      }).catch(error => {
+        const detail = error instanceof Error ? error.message : String(error)
+        ctx.logger.warn(`dsh-remote: workspace restoration failed; configured workspaces remain available (${detail})`)
+        if (active) dispose = workspaces.register(workspaceController.provider)
+      })
+      return () => {
+        active = false
+        dispose?.()
+      }
+    }, 'dsh-remote workspace provider')
   }
   if (tuiStatus !== undefined) {
     ctx.effect(() => {
@@ -199,17 +249,13 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
       },
     }
     if (tuiPluginHost !== undefined) {
-      try {
-        tuiPluginHost.admit(ctx, manifestSource, {
-          source: 'dsh-plugin.json',
-        })
+      if (admitted) {
         ctx.effect(
           () => tuiPluginHost.registerCommand(ctx, commandContributionId, commandDefinition),
           'dsh-remote mediated command',
         )
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error)
-        ctx.logger.warn(`dsh-remote: command admission unavailable; remote scene remains available (${detail})`)
+      } else {
+        ctx.logger.warn('dsh-remote: command admission unavailable; remote command registration skipped')
       }
     } else {
       ctx.effect(() => commands.register(commandDefinition), 'dsh-remote command')

@@ -197,8 +197,11 @@ SSH 账号权限。
 远端绝对路径，dsh-TUI 会在该远端 cwd 新建 session。这个 session 的
 `!command` 由远端 `/bin/sh -lc` 执行，默认 30 秒超时。
 
-临时输入的 workspace 在当前进程内会被识别为远端路径；要让它在重启后仍能被
-识别，应将路径加入 `workspaces` 或 `DSH_REMOTE_CWD`。
+临时输入的 workspace 会被识别为远端路径，并在提供 dsh-TUI `storage.local`
+能力且插件获得相应授权时持久化。重启或 `/resume` 后仍会显示 `REMOTE` badge；
+存储按 target id、用户名、主机和端口隔离。旧 profile、未授权或存储不可用时，
+当前进程仍可使用临时路径，但重启后需要将路径加入 `workspaces` 或
+`DSH_REMOTE_CWD`。
 
 ## 更新和验证
 
@@ -226,6 +229,8 @@ SSH 握手超时通常表示地址、端口、防火墙或安全组不可达；`
 
 - Live mode 不使用本地 sandbox，远端 SSH 账户权限就是有效权限边界。
 - 密码仅用于当前连接尝试，不写入插件配置或环境变量；插件不输出密码或私钥内容。
+- 临时 workspace 归属只通过 dsh-TUI `storage.local` 保存；插件不直接读写
+  `~/.dsh-tui`、`~/.dsh` 或自有 JSON 文件，存储键和值不会写入日志。
 - SSH host-key verification 通过 runtime verifier 接入；Diagnostics 不会声称
   主机密钥已验证。连接前会在 `/remote` 中显示 SSH host fingerprint；未知指纹必须
   显式 Trust，指纹变化默认拒绝。

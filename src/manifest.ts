@@ -23,6 +23,12 @@ export const manifestSource = JSON.stringify({
         optional: true,
         fallback: 'Remote scene and workspace providers remain available',
       },
+      {
+        apiVersion: 'storage.dsh/v1alpha1',
+        kind: 'LocalStorage',
+        optional: true,
+        fallback: 'Configured workspaces remain available without temporary workspace persistence',
+      },
     ],
   },
   permissions: [
@@ -30,6 +36,16 @@ export const manifestSource = JSON.stringify({
       name: 'commands.invoke',
       scope: 'com.dsh-tui-ecosystem.dsh-remote.remote',
       reason: 'invoke the remote control command',
+    },
+    {
+      name: 'storage.local.read',
+      scope: 'com.dsh-tui-ecosystem.dsh-remote',
+      reason: 'restore temporary remote workspace ownership',
+    },
+    {
+      name: 'storage.local.write',
+      scope: 'com.dsh-tui-ecosystem.dsh-remote',
+      reason: 'persist temporary remote workspace ownership',
     },
   ],
   contributes: {
