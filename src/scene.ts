@@ -46,6 +46,7 @@ function createRemoteSceneComponent(
     const [workspaceBusy, setWorkspaceBusy] = React.useState(false)
     const [password, setPassword] = React.useState('')
     const [passwordError, setPasswordError] = React.useState<string | undefined>()
+    const [hostKeyChoice, setHostKeyChoice] = React.useState(0)
     const { columns } = useTerminalSize()
     const narrow = columns < 78
     const paths = workspaces.paths()
@@ -53,6 +54,10 @@ function createRemoteSceneComponent(
     React.useEffect(() => {
       if (tab === 1) void store.refreshDiagnostics()
     }, [tab])
+
+    React.useEffect(() => {
+      if (snapshot.hostKeyVerification !== undefined) setHostKeyChoice(0)
+    }, [snapshot.hostKeyVerification?.fingerprint, snapshot.hostKeyVerification?.expectedFingerprint])
 
     const runAction = React.useCallback((action: RemoteAction, submittedPassword?: string) => {
       const operation = action === 'connect'
@@ -90,6 +95,30 @@ function createRemoteSceneComponent(
     }, [channel, close])
 
     useInput((input, key, event) => {
+      const hostKeyVerification = snapshot.hostKeyVerification
+      if (hostKeyVerification !== undefined) {
+        if (key.escape) {
+          store.rejectHostKey()
+          return
+        }
+        if (key.leftArrow || key.rightArrow) {
+          setHostKeyChoice(choice => choice === 0 ? 1 : 0)
+          return
+        }
+        if (key.return) {
+          if (hostKeyChoice === 0) {
+            try {
+              store.trustHostKey()
+            } catch (error) {
+              channel.notify(error instanceof Error ? error.message : String(error), { color: 'error', timeoutMs: 8_000 })
+            }
+          } else {
+            store.rejectHostKey()
+          }
+          return
+        }
+        return
+      }
       const credentialAction = snapshot.credentialRequest
       if (credentialAction !== undefined) {
         if (key.escape) {
@@ -212,6 +241,25 @@ function createRemoteSceneComponent(
           React.createElement(Text, { wrap: 'truncate-end' }, `Password  ${'*'.repeat(password.length)}`),
           passwordError === undefined ? null : React.createElement(Text, { color: 'error' }, passwordError),
         )
+    const hostKeyPrompt = snapshot.hostKeyVerification === undefined
+      ? null
+      : React.createElement(
+          Box,
+          { flexDirection: 'column', marginTop: 1, paddingX: 1, borderStyle: 'single', borderColor: 'warning' },
+          React.createElement(Text, { bold: true }, snapshot.hostKeyVerification.state === 'changed' ? 'SSH host key changed' : 'Trust SSH host key'),
+          React.createElement(Text, { wrap: 'truncate-end' }, `Target       ${snapshot.hostKeyVerification.target}`),
+          snapshot.hostKeyVerification.expectedFingerprint === undefined
+            ? null
+            : React.createElement(Text, { color: 'error', wrap: 'truncate-end' }, `Saved        ${snapshot.hostKeyVerification.expectedFingerprint}`),
+          React.createElement(Text, { wrap: 'truncate-end' }, `Presented    ${snapshot.hostKeyVerification.fingerprint}`),
+          React.createElement(Text, { color: 'subtle' }, 'Verify this fingerprint out of band before trusting it.'),
+          React.createElement(
+            Box,
+            { flexDirection: 'row', gap: 2, marginTop: 1 },
+            React.createElement(Text, { inverse: hostKeyChoice === 0 }, ' Trust '),
+            React.createElement(Text, { inverse: hostKeyChoice === 1 }, ' Reject '),
+          ),
+        )
 
     let body: ReturnType<typeof React.createElement>
     if (tab === 0) {
@@ -282,6 +330,7 @@ function createRemoteSceneComponent(
       ),
       tabRow,
       actionRow,
+      hostKeyPrompt,
       passwordPrompt,
       snapshot.error === undefined ? null : React.createElement(Text, { color: 'error', wrap: 'wrap' }, snapshot.error),
       body,

@@ -4,6 +4,7 @@ import type {
   LiveMetrics,
   LiveRuntime,
 } from '@dsh-remote/live-runtime'
+import type { HostKeyVerificationRequest, HostKeyVerifier } from './hostkeys.js'
 
 export type RemoteDisplayStatus = LiveConnectionStatus | 'disconnecting'
 export type RemoteAction = 'connect' | 'disconnect' | 'reconnect'
@@ -24,6 +25,7 @@ export interface ConnectionSnapshot {
   diagnostics: readonly DiagnosticCheck[]
   diagnosticsBusy: boolean
   credentialRequest?: RemoteCredentialAction
+  hostKeyVerification?: HostKeyVerificationRequest
   /** Round-trip time of the latest connect/reconnect or diagnostics exec. */
   roundTripMs?: number
 }
@@ -43,6 +45,7 @@ export class ConnectionStore {
   constructor(
     readonly runtime: LiveRuntime,
     private readonly configurationError?: string,
+    private readonly hostKeyVerifier?: HostKeyVerifier,
   ) {
     this.current = {
       status: runtime.status,
@@ -50,8 +53,10 @@ export class ConnectionStore {
       metrics: runtime.metrics,
       diagnostics: REMOTE_COMMANDS.map(name => ({ name, status: 'pending' })),
       diagnosticsBusy: false,
+      hostKeyVerification: hostKeyVerifier?.getSnapshot(),
     }
     runtime.subscribe(() => this.sync())
+    hostKeyVerifier?.subscribe(() => this.sync())
   }
 
   readonly subscribe = (listener: () => void): (() => void) => {
@@ -81,6 +86,14 @@ export class ConnectionStore {
   cancelCredentials(): void {
     if (this.current.credentialRequest === undefined) return
     this.publish({ ...this.current, credentialRequest: undefined })
+  }
+
+  trustHostKey(): void {
+    this.hostKeyVerifier?.trust()
+  }
+
+  rejectHostKey(): void {
+    this.hostKeyVerifier?.reject()
   }
 
   refreshDiagnostics(): Promise<void> {
@@ -176,6 +189,7 @@ export class ConnectionStore {
   private sync(): void {
     this.publish({
       ...this.current,
+      hostKeyVerification: this.hostKeyVerifier?.getSnapshot(),
       status: this.current.busy === 'disconnect'
         ? 'disconnecting'
         : this.current.busy !== undefined

@@ -11,6 +11,7 @@ import { createStatusItemsProvider } from './status.js'
 import type { StatusItemsProvider } from './status.js'
 import { ConnectionStore } from './store.js'
 import { RemoteWorkspaceController } from './workspaces.js'
+import { hostKeyIdentity, HostKeyVerifier } from './hostkeys.js'
 
 export const name = 'dsh-remote'
 export { Config } from './config.js'
@@ -69,6 +70,10 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
     : resolved.auth === 'password'
       ? { type: 'password' as const }
       : { type: 'agent' as const }
+  const hostKeyVerifier = new HostKeyVerifier(
+    hostKeyIdentity(resolved.targetId, resolved.host, resolved.port, resolved.username),
+    `${resolved.username}@${resolved.host}:${resolved.port}`,
+  )
   const runtime = installLiveRuntime(ctx, {
     targetId: resolved.targetId,
     title: resolved.title,
@@ -80,11 +85,12 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
     keepaliveIntervalMs: resolved.keepaliveIntervalMs,
     defaultCwd: resolved.workspaces[0] ?? '/',
     monitorIntervalMs: resolved.monitorIntervalMs,
+    hostVerifier: hostKeyVerifier.verify,
   })
   const configurationError = resolved.auth === 'key' && resolved.privateKeyPath.length === 0
     ? 'privateKeyPath is required when auth is key'
     : undefined
-  const store = new ConnectionStore(runtime, configurationError)
+  const store = new ConnectionStore(runtime, configurationError, hostKeyVerifier)
   const workspaceController = new RemoteWorkspaceController(runtime, {
     targetId: resolved.targetId,
     title: resolved.title,
@@ -102,8 +108,15 @@ export function apply(ctx: Context, config: PluginConfig = {}): void {
   const commands = ctx.get('commands', false) as CommandsLike | undefined
 
   if (scenes !== undefined) {
+    hostKeyVerifier.subscribe(() => {
+      if (hostKeyVerifier.getSnapshot() !== undefined) scenes.open('dsh-remote')
+    })
+  }
+
+  if (scenes !== undefined) {
     ctx.effect(() => scenes.register(createRemoteScene(store, workspaceController, resolved)), 'dsh-remote scene')
   }
+  ctx.effect(() => () => hostKeyVerifier.dispose(), 'dsh-remote host-key verifier')
   if (workspaces !== undefined) {
     ctx.effect(() => workspaces.register(workspaceController.provider), 'dsh-remote workspace provider')
   }

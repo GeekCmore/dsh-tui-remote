@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { LiveConnectionStatus, LiveCredentials, LiveRuntime } from '@dsh-remote/live-runtime'
+import { HostKeyVerifier } from '../src/hostkeys.js'
 import { ConnectionStore } from '../src/store.js'
 
 function deferred(): { promise: Promise<void>; resolve(): void } {
@@ -69,5 +70,22 @@ describe('ConnectionStore', () => {
     const store = new ConnectionStore(runtime({ connect }), 'privateKeyPath is required')
     await expect(store.connect()).rejects.toThrow('privateKeyPath is required')
     expect(connect).not.toHaveBeenCalled()
+  })
+
+  it('publishes host-key verification requests and clears them after rejection', async () => {
+    const verifier = new HostKeyVerifier(
+      'test-store-id',
+      'deploy@example:22',
+      `/tmp/dsh-remote-test-hostkeys-store-${process.pid}-${Date.now()}.json`,
+    )
+    const store = new ConnectionStore(runtime(), undefined, verifier)
+    const pending = verifier.verify('pending-key', Buffer.from('key'))
+    expect(store.getSnapshot().hostKeyVerification).toMatchObject({
+      state: 'pending',
+      fingerprint: 'SHA256:pending-key',
+    })
+    store.rejectHostKey()
+    await expect(pending).resolves.toBe(false)
+    expect(store.getSnapshot().hostKeyVerification).toBeUndefined()
   })
 })

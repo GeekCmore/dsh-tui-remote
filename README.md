@@ -226,8 +226,12 @@ SSH 握手超时通常表示地址、端口、防火墙或安全组不可达；`
 
 - Live mode 不使用本地 sandbox，远端 SSH 账户权限就是有效权限边界。
 - 密码仅用于当前连接尝试，不写入插件配置或环境变量；插件不输出密码或私钥内容。
-- 当前 Hub 尚未向 TUI 暴露 host-key verification 结果，Diagnostics 不会声称
-  主机密钥已验证。
+- SSH host-key verification 通过 runtime verifier 接入；Diagnostics 不会声称
+  主机密钥已验证。连接前会在 `/remote` 中显示 SSH host fingerprint；未知指纹必须
+  显式 Trust，指纹变化默认拒绝。
+- 已接受的 fingerprint 保存在 `$DSH_HOME/dsh-remote/known-hosts.json`（未设置
+  `DSH_HOME` 时为 `~/.dsh/dsh-remote/known-hosts.json`）。插件不修改系统
+  `~/.ssh/known_hosts`；删除该文件中的 target 记录即可重新触发首次信任。
 - 插件包包含 Community Consensus v0.15 的 `dsh-plugin.json`。在提供
   `tuiPluginHost` 的新 profile 中，`/remote` 会先经过 admission，再通过宿主
   mediated command path 注册；旧 profile 回退到传统 command registration。
