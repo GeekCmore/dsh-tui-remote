@@ -16,6 +16,8 @@ export interface ConnectionSnapshot {
     diagnostics: readonly DiagnosticCheck[];
     diagnosticsBusy: boolean;
     credentialRequest?: RemoteCredentialAction;
+    /** Round-trip time of the latest connect/reconnect or diagnostics exec. */
+    roundTripMs?: number;
 }
 export declare class ConnectionStore {
     readonly runtime: LiveRuntime;

@@ -97,5 +97,8 @@ Connect/Reconnect 时通过 TUI 遮罩输入临时询问。
 - 密码仅用于当前连接尝试，不写入插件配置或环境变量；插件不输出密码或私钥内容。
 - 当前 Hub 尚未向 TUI 暴露 host-key verification 结果，Diagnostics 不会声称
   主机密钥已验证。
-- dsh-TUI 0.8.0 没有常驻状态栏插件接缝，连接状态集中显示在 `/remote`、
-  workspace 的 `REMOTE` badge 和操作通知中。
+- 插件包包含 Community Consensus v0.15 的 `dsh-plugin.json`。在提供
+  `tuiPluginHost` 的新 profile 中，`/remote` 会先经过 admission，再通过宿主
+  mediated command path 注册；旧 profile 回退到传统 command registration。
+- 新 profile 使用官方 `tuiStatus` 显示连接状态、target 和延迟；旧 profile
+  回退到 `tuiStatusItems`。

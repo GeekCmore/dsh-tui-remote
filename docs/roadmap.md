@@ -15,7 +15,8 @@
 
 ## 2. Live UX 完善
 
-- 在 dsh-TUI 增加 `tuiStatusItems` 接缝，提供常驻连接状态、target 与延迟信息。
+- 接入 dsh-TUI 官方 `tuiPluginHost` admission 与 mediated command registration；旧宿主保留兼容回退。
+- 使用官方 `tuiStatus` keyed status service 提供常驻连接状态、target 与延迟信息；旧 `tuiStatusItems` 仅作为回退。
 - 增加启动时远端 cwd 参数，避免初始 session 先落在本地 cwd。
 - 设计 host-key verification 的首次信任、指纹变化和拒绝流程。
 - 持久化临时 workspace 归属，使重启和 `/resume` 后仍显示 `REMOTE` badge。
